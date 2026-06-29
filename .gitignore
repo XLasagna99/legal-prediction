@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Data & models (track with DVC instead of git)
+data/raw/*
+data/processed/*
+data/external/*
+!data/**/.gitkeep
+ml/registry/*
+!ml/registry/.gitkeep
+
+# Env
+.env
+*.local
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/

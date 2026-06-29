@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: legal
+      POSTGRES_PASSWORD: legal
+      POSTGRES_DB: legal
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    environment:
+      # Mount the trained model into the container and point at it
+      MODEL_DIR: /models
+      ALLOWED_ORIGINS: http://localhost:5173
+      DATABASE_URL: postgresql://legal:legal@db:5432/legal
+    volumes:
+      - ./ml/registry:/models:ro
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
