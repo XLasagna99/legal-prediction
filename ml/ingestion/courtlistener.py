@@ -37,7 +37,9 @@ def fetch_opinions(court: str, page_size: int = 50, max_pages: int = 1) -> list[
     """
     results: list[dict] = []
     url = f"{API_BASE}/opinions/"
-    params = {"court": court, "page_size": page_size}
+    # Opinion has no `court` field of its own — court lives on the docket,
+    # reached through the opinion's cluster.
+    params = {"cluster__docket__court": court, "page_size": page_size}
     for _ in range(max_pages):
         resp = requests.get(url, headers=_headers(), params=params, timeout=30)
         resp.raise_for_status()

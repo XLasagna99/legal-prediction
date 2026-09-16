@@ -9,7 +9,8 @@ suspiciously high (e.g. >0.95 AUC), suspect leakage first.
 Expected input: data/processed/cases.csv with at least these columns:
     text          - pre-decision text (facts/complaint/brief), NO opinion text
     filed_date    - date used for the temporal split (ISO format)
-    outcome       - binary label (0/1)
+    outcome       - categorical label (2 or more classes; sklearn's
+                    LogisticRegression and evaluate() both handle either)
 Optional metadata columns are listed in METADATA_COLUMNS below.
 """
 from __future__ import annotations
@@ -19,6 +20,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import joblib
+import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -38,8 +40,54 @@ DATE_COLUMN = "filed_date"
 LABEL_COLUMN = "outcome"
 METADATA_COLUMNS = ["court", "case_type", "represented"]  # adjust to your data
 
+# Class-Balanced Loss (Cui et al., CVPR 2019, https://arxiv.org/abs/1901.05555):
+# weight per class inversely proportional to the "effective number" of
+# samples, (1 - beta^n) / (1 - beta), rather than raw inverse frequency.
+# Near-duplicate examples in a class contribute diminishing marginal
+# information, so a big class isn't punished as harshly as pure 1/n would,
+# and a tiny class (e.g. allowed_part, ~4% of this dataset) isn't
+# over-weighted to the point of instability the way sklearn's "balanced"
+# (pure inverse frequency) can be. See docs/MODEL_IMPROVEMENTS.md Phase 0.3.
+EFFECTIVE_NUMBER_BETA = 0.999
 
-def build_pipeline(metadata_columns: list[str]) -> Pipeline:
+
+def effective_number_class_weight(y, beta: float = EFFECTIVE_NUMBER_BETA) -> dict:
+    """Per-class weight dict for `LogisticRegression(class_weight=...)`,
+    normalized so the *sample-weighted* average weight is 1 -- i.e.
+    sum(weight[c] * count[c] for c) == len(y) -- matching sklearn's
+    "balanced" convention (`sklearn.utils.class_weight.compute_class_weight`),
+    so the two schemes are comparable in overall loss magnitude and differ
+    only in how they treat rare vs. common classes, not in total scale.
+
+    Normalizing to a simple per-class average of 1 instead (i.e. dividing by
+    `len(counts)` rather than by the sample-weighted sum) was tried first and
+    is a real bug to avoid: with 5 very unequally-sized classes, the rare
+    classes' large raw weights dominate a simple average, so that scheme
+    silently shrinks every weight by several-fold relative to "balanced" --
+    which, against a fixed `C`, acts like added L2 regularization pressure
+    and drags accuracy down across *all* classes, not just the rare ones.
+    That confounded an earlier evaluation of this function -- see
+    docs/MODEL_RESULTS.md Run 4 vs Run 5.
+    """
+    counts = pd.Series(y).value_counts()
+    effective_num = 1.0 - np.power(beta, counts)
+    raw_weight = (1.0 - beta) / effective_num
+    n_total = counts.sum()
+    scale = n_total / (raw_weight * counts).sum()
+    normalized = raw_weight * scale
+    return normalized.to_dict()
+
+
+# Regularization strength for the final LogisticRegression. sklearn's default
+# (C=1.0) was left untuned until 2026-09-14 (docs/MODEL_IMPROVEMENTS.md Phase
+# 0.5); grid-searching C against the growing dataset consistently favored a
+# much weaker penalty (larger C) than the default -- see docs/MODEL_RESULTS.md
+# Run 12 for the sweep this value is chosen from. Re-sweep if the dataset
+# composition changes materially (it's sensitive to n and class balance).
+DEFAULT_C = 10.0
+
+
+def build_pipeline(metadata_columns: list[str], class_weight="balanced", C: float = DEFAULT_C) -> Pipeline:
     features = ColumnTransformer(
         transformers=[
             (
@@ -63,7 +111,7 @@ def build_pipeline(metadata_columns: list[str]) -> Pipeline:
     return Pipeline(
         steps=[
             ("features", features),
-            ("clf", LogisticRegression(max_iter=1000, class_weight="balanced")),
+            ("clf", LogisticRegression(max_iter=2000, class_weight=class_weight, C=C)),
         ]
     )
 
@@ -82,12 +130,16 @@ def main() -> None:
         df[col] = df[col].fillna("unknown").astype(str)
 
     train_df, test_df = temporal_split(df, DATE_COLUMN, test_fraction=0.2)
-    pipeline = build_pipeline(metadata)
+    class_weight = effective_number_class_weight(train_df[LABEL_COLUMN])
+    pipeline = build_pipeline(metadata, class_weight=class_weight)
     pipeline.fit(train_df, train_df[LABEL_COLUMN])
 
-    proba = pipeline.predict_proba(test_df)[:, 1]
-    preds = (proba >= 0.5).astype(int)
-    report = evaluate(test_df[LABEL_COLUMN], preds, proba)
+    # predict_proba's full matrix + predict() (argmax) rather than a manual
+    # [:, 1] slice + 0.5 threshold -- the latter only makes sense for binary
+    # labels, and `outcome` may now have more than two categories.
+    proba = pipeline.predict_proba(test_df)
+    preds = pipeline.predict(test_df)
+    report = evaluate(test_df[LABEL_COLUMN], preds, proba, classes=pipeline.classes_)
 
     REGISTRY.mkdir(parents=True, exist_ok=True)
     version = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
@@ -109,6 +161,9 @@ def main() -> None:
             str(test_df[DATE_COLUMN].max()),
         ],
         "metadata_columns": metadata,
+        "class_weight_scheme": f"effective_number(beta={EFFECTIVE_NUMBER_BETA})",
+        "class_weights": {str(k): round(v, 4) for k, v in class_weight.items()},
+        "C": DEFAULT_C,
         "metrics": report.to_dict(),
     }
     (REGISTRY / "latest.json").write_text(json.dumps(metadata_blob, indent=2))

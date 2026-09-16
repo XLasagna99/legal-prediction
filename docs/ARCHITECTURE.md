@@ -2,20 +2,20 @@
 
 ## How the pieces fit
 
-```
-            data sources
-                 |
-        ml/ingestion  ->  data/raw
-                 |
-       ml/preprocessing  ->  data/processed   (leakage stripped here)
-                 |
-         ml/features + ml/training
-                 |
-          ml/registry/  (versioned artifact + latest.json)
-                 |
-   backend reads artifact  ->  FastAPI /predict, /model, /health
-                 |
-        frontend  ->  calls backend only
+```mermaid
+flowchart TD
+    Sources(["data sources"])
+    Ingestion["ml/ingestion"]
+    Raw[("data/raw")]
+    Preprocessing["ml/preprocessing<br/>(leakage stripped here)"]
+    Processed[("data/processed")]
+    FeaturesTraining["ml/features + ml/training"]
+    Registry[("ml/registry/<br/>versioned artifact + latest.json")]
+    Backend["backend<br/>reads artifact"]
+    API(["FastAPI /predict, /model, /health"])
+    Frontend(["frontend<br/>calls backend only"])
+
+    Sources --> Ingestion --> Raw --> Preprocessing --> Processed --> FeaturesTraining --> Registry --> Backend --> API --> Frontend
 ```
 
 Training and serving are decoupled on purpose. The backend depends only on the

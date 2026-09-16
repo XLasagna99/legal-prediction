@@ -57,16 +57,46 @@ def temporal_split(
     return ordered.iloc[:cutoff].copy(), ordered.iloc[cutoff:].copy()
 
 
-def evaluate(y_true, y_pred, y_score=None) -> ClassificationReport:
-    """Standard binary-classification metrics."""
+def evaluate(y_true, y_pred, y_score=None, classes=None) -> ClassificationReport:
+    """Classification metrics for binary or multi-class labels.
+
+    precision/recall/f1 are macro-averaged (unweighted mean across classes)
+    so a rare class doesn't get drowned out by a common one -- this matters
+    once outcome has more than two categories.
+
+    `y_score` is the model's predicted probabilities: a 1-D array of
+    P(positive class) for binary, or a 2-D (n_samples, n_classes) matrix for
+    multi-class. For multi-class, also pass `classes` (e.g. `pipeline.
+    classes_`) so the score columns can be matched to labels. ROC-AUC is
+    skipped (left None) rather than computed as a misleading value if a
+    class present in `classes` has too few test examples for sklearn to
+    score it -- this happens easily with small, imbalanced multi-class test
+    sets. Note sklearn does NOT raise in that situation: the affected
+    class's one-vs-rest AUC comes back `nan` (with an UndefinedMetricWarning)
+    and silently poisons the macro average, so this is checked explicitly
+    rather than only caught via try/except ValueError.
+    """
     roc = None
     if y_score is not None and len(np.unique(y_true)) > 1:
-        roc = float(roc_auc_score(y_true, y_score))
+        try:
+            if np.ndim(y_score) == 2 and y_score.shape[1] > 2:
+                roc = float(
+                    roc_auc_score(
+                        y_true, y_score, multi_class="ovr", average="macro", labels=classes
+                    )
+                )
+            else:
+                score = y_score[:, 1] if np.ndim(y_score) == 2 else y_score
+                roc = float(roc_auc_score(y_true, score))
+        except ValueError:
+            roc = None
+        if roc is not None and np.isnan(roc):
+            roc = None
     return ClassificationReport(
         accuracy=float(accuracy_score(y_true, y_pred)),
-        precision=float(precision_score(y_true, y_pred, zero_division=0)),
-        recall=float(recall_score(y_true, y_pred, zero_division=0)),
-        f1=float(f1_score(y_true, y_pred, zero_division=0)),
+        precision=float(precision_score(y_true, y_pred, average="macro", zero_division=0)),
+        recall=float(recall_score(y_true, y_pred, average="macro", zero_division=0)),
+        f1=float(f1_score(y_true, y_pred, average="macro", zero_division=0)),
         roc_auc=roc,
         n=int(len(y_true)),
     )
