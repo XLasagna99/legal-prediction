@@ -468,16 +468,16 @@ where `class_weight` (as of 2026-08-29, `docs/MODEL_IMPROVEMENTS.md` Phase
   composition changes materially — this value is fit to the current data,
   not a universal constant.
 
-### Where `ml/features/build_features.py` fits (it doesn't, yet)
+### Text-length features: not implemented
 
-`add_text_length()` / `assemble()` in `ml/features/build_features.py` add
-`text_char_len` / `text_word_len` columns. **`train_baseline.py` does not
-call this module** — vectorization happens entirely inside the
-`ColumnTransformer` built directly in `train_baseline.py`. If you want
-text-length signals in the model, `build_features.assemble(df)` needs to run
-on `cases.csv` before the pipeline fits, and `text_char_len`/`text_word_len`
-need to be added to `METADATA_COLUMNS` (or a separate numeric transformer)
-in `train_baseline.py`. Not done as of this doc's last update.
+`ml/features/build_features.py` (`add_text_length()`/`assemble()`, adding
+`text_char_len`/`text_word_len` columns) was written but never wired into
+`train_baseline.py` and never called anywhere — removed 2026-09-17 as dead
+code (ponytail audit). Vectorization happens entirely inside the
+`ColumnTransformer` built directly in `train_baseline.py`. If text-length
+signals are wanted later, they'd need a small numeric transformer added
+there directly, computed from `df[TEXT_COLUMN]` inline, rather than a
+separate always-dead module.
 
 ---
 
@@ -761,8 +761,9 @@ python -m pytest tests/ -v
 
 | File | Covers |
 |---|---|
-| `test_clean.py` | `strip_leakage`/`strip_sg_leakage` (including regression tests for the 2026-08-28 struck_out/withdrawn leakage fix), `extract_outcome_heuristic` per class, `clean_record`, `clean_singapore_record` |
+| `test_clean.py` | `strip_leakage`/`strip_sg_leakage` (including regression tests for the 2026-08-28 struck_out/withdrawn leakage fix), `extract_outcome_heuristic` per class, `clean_singapore_record` |
 | `test_metrics.py` | `temporal_split` ordering/sizing, `evaluate()` binary and multi-class paths, the roc_auc `nan`-vs-`None` fix, `group_metrics` |
+| `test_bias_audit.py` | `run_audit()`'s registry/data wiring, grouped by `court`, against a fitted `DummyClassifier` |
 | `test_ingestion_parsing.py` | `_parse_result_cards`/`_extract_date` against a static HTML fixture — offline, can't hit the live site, and can't catch the site's structure changing |
 | `test_train_baseline.py` | `build_pipeline()` for both binary and multi-class labels, `effective_number_class_weight()` (§8), plus an end-to-end `main()` run against a synthetic dataset via monkeypatched `DATA_PATH`/`REGISTRY` (isolated from the real `data/`/`registry/` directories) |
 

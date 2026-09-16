@@ -31,23 +31,15 @@ never a bare verdict -- matching ARCHITECTURE.md's responsible-use note.
 """
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from inference.predict import predict  # noqa: E402
+from labels import DISPOSITION_MEANINGS  # noqa: E402
 from preprocessing.clean import extract_costs_amount_bucket  # noqa: E402
-
-DISPOSITION_MEANINGS = {
-    "dismissed": "the application/appeal/claim is refused on its merits",
-    "allowed_full": "the application/appeal/claim is allowed or granted in full",
-    "allowed_part": "the application/appeal/claim is allowed or granted in part only",
-    "struck_out": "the application/pleading is struck out -- a procedural disposal, "
-    "not a ruling on the merits",
-    "withdrawn": "the moving party withdrew before any ruling on the merits -- "
-    "neither side wins or loses on the substance",
-}
 
 _CONFIDENCE_BANDS = [
     (0.5, "high (relative to the other candidate outcomes)"),
@@ -75,8 +67,6 @@ def build_report(case: dict) -> dict:
     metrics = result.get("model_metrics", {})
     accuracy = metrics.get("accuracy")
     macro_f1 = metrics.get("f1")
-
-    import os
 
     result["confidence_band"] = _confidence_band(result["confidence"])
     result["disposition_meaning"] = DISPOSITION_MEANINGS.get(result["label"], "unknown disposition")
@@ -217,8 +207,6 @@ def answer_question(report: dict, question: str) -> str:
 
 def run_cli() -> None:  # pragma: no cover -- interactive, not unit tested
     import argparse
-    import os
-
     parser = argparse.ArgumentParser(description="Interactive legal-outcome-prediction agent")
     parser.add_argument("text_file", help="Path to a text file with the case's facts/text")
     parser.add_argument("--court", default="unknown")

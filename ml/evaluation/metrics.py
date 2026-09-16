@@ -6,7 +6,7 @@ aggregate accuracy hides).
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
@@ -27,7 +27,6 @@ class ClassificationReport:
     f1: float
     roc_auc: float | None
     n: int
-    extra: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
@@ -37,7 +36,6 @@ class ClassificationReport:
             "f1": self.f1,
             "roc_auc": self.roc_auc,
             "n": self.n,
-            **self.extra,
         }
 
 

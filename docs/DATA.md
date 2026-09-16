@@ -6,8 +6,10 @@ hardest part of the project, so treat it with more care than the code.
 ## Where to get cases
 
 - **CourtListener / RECAP** (Free Law Project) — US opinions and federal
-  dockets, with an API and bulk data. A starter ingester lives at
-  `ml/ingestion/courtlistener.py`. Get a free API token and respect rate limits.
+  dockets, with an API and bulk data. Get a free API token and respect rate
+  limits. (This project's own ingester for it was tried and removed — no
+  Singapore coverage, see `ROADMAP.md` — so there's no starter code here
+  anymore; `ml/ingestion/singapore_courts.py` is the current source.)
 - **Caselaw Access Project** (Harvard) — millions of US cases, now fully open.
   Good for bulk historical text.
 - **Supreme Court Database** (Spaeth) — richly hand-coded SCOTUS metadata. The

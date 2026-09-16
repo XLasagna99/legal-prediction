@@ -38,18 +38,6 @@ def strip_leakage(text: str) -> str:
     return normalize_whitespace(" ".join(kept))
 
 
-def clean_record(raw: dict) -> dict:
-    """Map one raw record to the processed schema. Adapt field names to source."""
-    return {
-        "text": strip_leakage(normalize_whitespace(raw.get("text", ""))),
-        "filed_date": raw.get("filed_date"),
-        "outcome": raw.get("outcome"),
-        "court": raw.get("court", "unknown"),
-        "case_type": raw.get("case_type", "unknown"),
-        "represented": raw.get("represented", "unknown"),
-    }
-
-
 # --- Singapore Courts (elitigation.sg) source, see ingestion/singapore_courts.py ---
 #
 # Unlike CourtListener, elitigation.sg has no structured "outcome" or

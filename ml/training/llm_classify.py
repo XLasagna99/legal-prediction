@@ -25,6 +25,7 @@ import pandas as pd
 from openai import OpenAI
 
 from evaluation.metrics import temporal_split
+from labels import DISPOSITION_MEANINGS as LABEL_DEFS
 from training.train_baseline import DATA_PATH, DATE_COLUMN, LABEL_COLUMN, TEXT_COLUMN
 
 WINDOW = 6000  # chars per example, few-shot exemplars and query alike -- matches
@@ -32,15 +33,7 @@ WINDOW = 6000  # chars per example, few-shot exemplars and query alike -- matche
 EXAMPLES_PER_CLASS = 3
 MODEL = os.environ.get("LLM_CLASSIFY_MODEL", "gpt-4o-mini")
 
-LABELS = ["dismissed", "allowed_full", "allowed_part", "struck_out", "withdrawn"]
-
-LABEL_DEFS = {
-    "dismissed": "the application/appeal/claim is refused on its merits",
-    "allowed_full": "the application/appeal/claim is allowed or granted in full",
-    "allowed_part": "the application/appeal/claim is allowed or granted in part only",
-    "struck_out": "the application/pleading is struck out (a procedural disposal, not a merits ruling)",
-    "withdrawn": "the moving party withdrew before any ruling on the merits",
-}
+LABELS = list(LABEL_DEFS)
 
 
 def _client() -> OpenAI:

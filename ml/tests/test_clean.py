@@ -8,7 +8,6 @@ them. If that regresses, test_strip_sg_leakage_removes_struck_out and
 test_strip_sg_leakage_removes_withdrawn should fail immediately.
 """
 from preprocessing.clean import (
-    clean_record,
     clean_singapore_record,
     extract_costs_amount_bucket,
     extract_outcome_heuristic,
@@ -188,34 +187,6 @@ def test_extract_outcome_only_searches_within_window():
     # A disposition phrase outside the window should not be found.
     text = "I dismiss the application." + (" filler word" * 2000)
     assert extract_outcome_heuristic(text, window=100) is None
-
-
-# --- clean_record (original CourtListener-oriented mapper, unaffected by
-# the Singapore work -- locking its behavior in so it isn't broken later) ---
-
-
-def test_clean_record_maps_known_fields():
-    raw = {
-        "text": "The plaintiff alleges  breach.",
-        "filed_date": "2020-01-01",
-        "outcome": 1,
-        "court": "ca9",
-        "case_type": "civil",
-        "represented": "yes",
-    }
-    result = clean_record(raw)
-    assert result["text"] == "The plaintiff alleges breach."
-    assert result["filed_date"] == "2020-01-01"
-    assert result["outcome"] == 1
-    assert result["court"] == "ca9"
-
-
-def test_clean_record_defaults_missing_metadata_to_unknown():
-    result = clean_record({"text": "x"})
-    assert result["court"] == "unknown"
-    assert result["case_type"] == "unknown"
-    assert result["represented"] == "unknown"
-    assert result["outcome"] is None
 
 
 # --- clean_singapore_record ---

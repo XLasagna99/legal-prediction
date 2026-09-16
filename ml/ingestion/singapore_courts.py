@@ -1,11 +1,12 @@
 """Pull raw bankruptcy/insolvency judgments from the Singapore Courts' public
 judgments portal (elitigation.sg).
 
-CourtListener (see `courtlistener.py`) has no Singapore coverage at all --
-its `courts` list is US federal/state/tribal/territory/military plus three
-UK courts. This module targets elitigation.sg instead, which is Singapore's
-official portal for Supreme Court judgments and publishes full judgment text
-free, with no login or token required.
+CourtListener has no Singapore coverage at all -- its `courts` list is US
+federal/state/tribal/territory/military plus three UK courts (this project
+originally targeted it; abandoned, see ROADMAP.md). This module targets
+elitigation.sg instead, which is Singapore's official portal for Supreme
+Court judgments and publishes full judgment text free, with no login or
+token required.
 
 There is no documented public API. Everything here is HTML scraping of a
 server-rendered results page and judgment page, reverse-engineered by
@@ -21,7 +22,7 @@ No robots.txt was found (404) and no scraping-specific terms of use were
 located at the time this was written -- re-check before running large or
 repeated pulls, and keep request volume polite (see `_SLEEP_SECONDS`).
 
-CRITICAL: like `courtlistener.py`, the full judgment text here is written
+CRITICAL: the full judgment text here is written
 *after* the decision and states the outcome directly (e.g. "the application
 is dismissed"). Do NOT use it as a model feature as-is -- route it through
 the same leakage-stripping step in `ml/preprocessing/clean.py`, or use only
